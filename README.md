@@ -1,232 +1,125 @@
-# Stock Research Backend
+# Stock Dip Analysis Backend
 
-Production-grade stock research and analysis backend built with Node.js, TypeScript, PostgreSQL, Redis, and Socket.IO.
+Simple TypeScript/Express MVP that uses Finnhub and an Alpha Vantage candle fallback to flag whether a well-known stock is in a dip worth researching further.
 
-## Stack
+This API is intentionally conservative. It does not claim a stock is a guaranteed buy, and it does not include valuation, full fundamentals, or analyst ratings yet.
 
-- **Runtime**: Node.js 20 + TypeScript
-- **Framework**: Express
-- **Database**: PostgreSQL 15
-- **Cache**: Redis 7
-- **Real-time**: Socket.IO
-- **HTTP client**: Axios (with retry)
-- **Data sources**: Finnhub, SEC EDGAR, Alpha Vantage (fallback)
+## Data Sources
 
----
+The MVP pulls only:
+
+- Finnhub quote data
+- Finnhub historical daily candles, with Alpha Vantage daily candles as a fallback
+- RSI, calculated locally from candle closes when Finnhub's RSI endpoint is unavailable
+- Finnhub company news headlines
+
+## Scoring
+
+Scores are capped at 100:
+
+| Rule | Points |
+| --- | ---: |
+| Dip percentage is greater than 5% from the recent 20-day or 50-day high | 30 |
+| Current price is above SMA50 | 25 |
+| RSI is below 35 | 20 |
+| No obvious bad-news keyword is found in recent headlines | 25 |
+
+Labels:
+
+- `GOOD DIP`: score >= 75
+- `WATCH`: score >= 50
+- `AVOID`: score < 50
 
 ## Quick Start
 
-### 1. Prerequisites
-
-- Node.js 20+
-- Docker & Docker Compose (for Postgres + Redis)
-- Finnhub API key (free tier works): https://finnhub.io
-
-### 2. Install dependencies
-
 ```bash
 npm install
-```
-
-### 3. Configure environment
-
-```bash
 cp .env.example .env
-# Edit .env and add your FINNHUB_API_KEY
 ```
 
-### 4. Start infrastructure
+Add your Finnhub key. Add an Alpha Vantage key too if Finnhub blocks historical candles for your key:
 
 ```bash
-docker-compose up -d postgres redis
+FINNHUB_API_KEY=your_key_here
+ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key_here
+PORT=3000
 ```
 
-### 5. Run migrations
+Alpha Vantage's free key signup is here:
 
-```bash
-psql -U postgres -d stock_research -f migrations/init.sql
+```text
+https://www.alphavantage.co/support/#api-key
 ```
 
-Or if using Docker:
-```bash
-docker exec -i stock_research_postgres psql -U postgres -d stock_research < migrations/init.sql
-```
-
-### 6. Seed initial stocks
-
-```bash
-npm run seed
-```
-
-### 7. Start the server
+Run locally:
 
 ```bash
 npm run dev
 ```
 
-The server starts on `http://localhost:3000`.
-
----
-
-## API Reference
-
-### Stock Data
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/stock/:symbol` | Price + fundamentals + score |
-| GET | `/api/v1/stock/:symbol/metrics` | Full research metrics |
-| GET | `/api/v1/stock/:symbol/filings` | SEC filings |
-| GET | `/api/v1/stock/:symbol/candles?resolution=D` | OHLCV candles |
-| POST | `/api/v1/stock/:symbol/evaluate` | Evaluate rules against one stock |
-
-### Screening
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/v1/screen` | Screen stocks by rules |
-| GET | `/api/v1/stocks` | List all tracked stocks |
-| POST | `/api/v1/stocks` | Add a stock to track |
-
-### Watchlist
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/watchlist` | Get watchlist (requires `x-user-id` header) |
-| POST | `/api/v1/watchlist` | Add to watchlist |
-
-### Utility
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/v1/health` | Health check |
-
----
-
-## Screening Example
+Build:
 
 ```bash
-curl -X POST http://localhost:3000/api/v1/screen \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rules": [
-      { "field": "revenueGrowthYoy", "operator": ">",  "value": 0.10 },
-      { "field": "grossMargin",      "operator": ">",  "value": 0.40 },
-      { "field": "debtToEquity",     "operator": "<",  "value": 1.0  },
-      { "field": "relativeVolume",   "operator": ">=", "value": 1.5  }
-    ],
-    "limit": 20,
-    "minScore": 60
-  }'
-```
-
-## Parameter Evaluation Example
-
-```bash
-curl -X POST http://localhost:3000/api/v1/stock/AAPL/evaluate \
-  -H "Content-Type: application/json" \
-  -d '{
-    "rules": [
-      { "field": "revenueGrowthYoy", "operator": ">", "value": 0.05 },
-      { "field": "grossMargin",      "operator": ">", "value": 0.40 },
-      { "field": "debtToEquity",     "operator": "<", "value": 1.0  }
-    ]
-  }'
-```
-
----
-
-## WebSocket Usage
-
-Connect to the WebSocket server and subscribe to price updates:
-
-```javascript
-const socket = io('http://localhost:3000');
-
-// Subscribe to symbols
-socket.emit('subscribe', ['AAPL', 'MSFT', 'NVDA']);
-
-// Listen for price updates (every 15s)
-socket.on('price_update', ({ symbol, data, ts }) => {
-  console.log(`${symbol}: $${data.price} (${data.changePct?.toFixed(2)}%)`);
-});
-
-// Listen for score updates
-socket.on('score_update', ({ symbol, score }) => {
-  console.log(`${symbol} research score: ${score.compositeScore}`);
-});
-
-// Unsubscribe
-socket.emit('unsubscribe', ['AAPL']);
-```
-
----
-
-## Research Scoring
-
-Stocks are scored 0–100 based on four dimensions:
-
-| Dimension | Weight | Key Metrics |
-|-----------|--------|-------------|
-| Profitability | 35% | Gross margin, operating margin, net margin, ROE |
-| Growth | 30% | Revenue growth YoY, EPS growth YoY |
-| Leverage | 20% | Debt/equity, current ratio |
-| Momentum | 15% | Relative volume, distance from 52w high, above 200D MA |
-
----
-
-## Available Screening Fields
-
-**Market data**: `price`, `changePct`, `volume`, `relativeVolume`, `distFrom52wHigh`, `ma50d`, `ma200d`, `high52w`
-
-**Fundamentals**: `revenueGrowthYoy`, `epsGrowthYoy`, `grossMargin`, `operatingMargin`, `netMargin`, `roe`, `roa`, `debtToEquity`, `currentRatio`, `freeCashFlow`, `peRatio`, `psRatio`
-
-**Scores**: `compositeScore`, `growthScore`, `profitabilityScore`, `leverageScore`, `momentumScore`
-
----
-
-## Project Structure
-
-```
-src/
-├── config/          # DB, Redis, env validation
-├── modules/
-│   ├── market-data/ # Price, candles, moving averages
-│   ├── fundamentals/# EPS, margins, ROE etc.
-│   ├── filings/     # SEC EDGAR 10-K, 10-Q, 8-K
-│   ├── research/    # Scoring engine
-│   └── screening/   # Filter + rank engine
-├── shared/
-│   ├── cache/       # Redis wrapper
-│   ├── normalizer/  # Raw API → unified schema
-│   ├── http/        # Axios client with retry
-│   └── utils/       # Math helpers
-├── jobs/            # Poller + daily refresh jobs
-├── gateway/         # Socket.IO WebSocket server
-├── middleware/       # Error handler, rate limiter
-└── routes.ts        # All REST endpoints
-```
-
----
-
-## Running Tests
-
-```bash
-npm test              # all tests
-npm run test:unit     # unit tests only
-```
-
----
-
-## Production Deployment
-
-```bash
-# Build
 npm run build
-
-# Start (ensure .env is configured)
-npm start
-
-# Or via Docker Compose (full stack)
-docker-compose up --build
 ```
+
+## API
+
+### Health
+
+```bash
+GET /api/v1/health
+```
+
+### Dip Analysis
+
+```bash
+GET /api/v1/dip/:symbol
+GET /api/v1/stock/:symbol
+```
+
+Example:
+
+```bash
+curl http://localhost:3000/api/v1/dip/AAPL
+```
+
+Example response shape:
+
+```json
+{
+  "ticker": "AAPL",
+  "currentPrice": 189.42,
+  "dailyPercentChange": -1.21,
+  "recentHigh": 199.62,
+  "recentHighWindow": 50,
+  "dipPercentage": 5.11,
+  "sma20": 191.25,
+  "sma50": 184.76,
+  "trendDirection": "UPTREND",
+  "rsi": 34.8,
+  "latestNewsHeadlines": [
+    {
+      "headline": "Example headline",
+      "source": "Example Source",
+      "url": "https://example.com",
+      "datetime": 1710000000,
+      "summary": "Example summary"
+    }
+  ],
+  "badNewsFlag": false,
+  "score": 100,
+  "label": "GOOD DIP",
+  "explanation": "This is a GOOD DIP research signal, not a buy recommendation.",
+  "disclaimer": "Research signal only. This is not financial advice and does not predict that the stock will go up.",
+  "dataWarnings": []
+}
+```
+
+## Notes
+
+- `trendDirection` is based on current price, SMA20, and SMA50.
+- `recentHighWindow` uses 50 trading candles when available, otherwise 20, otherwise the available candle count.
+- Alpha Vantage fallback uses `TIME_SERIES_DAILY` JSON data and the backend computes SMA/RSI locally from those candles.
+- `badNewsFlag` is a simple keyword scan against the latest headlines and summaries. It is deliberately basic and should be expanded later.
+- Responses are cached in memory for short periods to reduce Finnhub API usage.

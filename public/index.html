@@ -3,582 +3,901 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Stock Research</title>
+  <title>S&P 500 Opportunity Scanner</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:     #0d1117;
-      --card:   #161b22;
-      --border: #30363d;
-      --text:   #e6edf3;
-      --muted:  #8b949e;
-      --green:  #3fb950;
-      --red:    #f85149;
-      --yellow: #d29922;
-      --blue:   #58a6ff;
+      --bg:          #0a0e14;
+      --bg-grad:     radial-gradient(1200px 600px at 50% -200px, #1a2332 0%, #0a0e14 60%);
+      --card:        #111822;
+      --card-2:      #0f151e;
+      --border:      #232c3b;
+      --border-soft: #1b2330;
+      --text:        #e6edf3;
+      --muted:       #7d8896;
+      --dim:         #5d6775;
+      --green:       #22c55e;
+      --green-bg:    rgba(34, 197, 94, 0.12);
+      --amber:       #f59e0b;
+      --amber-bg:    rgba(245, 158, 11, 0.12);
+      --red:         #ef4444;
+      --red-bg:      rgba(239, 68, 68, 0.12);
+      --blue:        #3b82f6;
+      --blue-bg:     rgba(59, 130, 246, 0.12);
     }
 
+    html, body { height: 100%; }
     body {
       background: var(--bg);
+      background-image: var(--bg-grad);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+      line-height: 1.5;
       min-height: 100vh;
     }
 
-    /* ── Search ────────────────────────────────────────────────────────── */
-    .search-wrap {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 28px 20px 12px;
+    .container { max-width: 1000px; margin: 0 auto; padding: 40px 20px 80px; }
+
+    /* ── Header ──────────────────────────────────────────────────────────── */
+    .app-header { text-align: center; margin-bottom: 28px; }
+    .app-title {
+      font-size: 30px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      margin-bottom: 6px;
+    }
+    .app-title .accent { color: var(--blue); }
+    .app-subtitle { font-size: 14px; color: var(--muted); }
+
+    /* ── Toolbar ─────────────────────────────────────────────────────────── */
+    .toolbar {
       display: flex;
       gap: 8px;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
     }
-    .search-wrap input {
-      flex: 1;
+    .toolbar input {
+      flex: 1 1 320px;
       background: var(--card);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 10px 16px;
-      border-radius: 8px;
-      font-size: 15px;
-      outline: none;
+      padding: 12px 16px;
+      border-radius: 10px;
+      font-size: 14px;
       letter-spacing: 0.5px;
+      outline: none;
+      transition: border-color 0.15s;
     }
-    .search-wrap input::placeholder { color: var(--muted); }
-    .search-wrap input:focus { border-color: var(--blue); }
-    .search-wrap button {
+    .toolbar input::placeholder { color: var(--dim); letter-spacing: 0.3px; }
+    .toolbar input:focus { border-color: var(--blue); }
+    .toolbar button {
       background: var(--blue);
-      color: #0d1117;
+      color: #fff;
       border: none;
-      padding: 10px 22px;
-      border-radius: 8px;
-      font-size: 15px;
-      font-weight: 700;
+      padding: 0 20px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
+      transition: opacity 0.15s, transform 0.1s;
     }
-    .search-wrap button:hover { opacity: 0.88; }
-
-    /* ── Layout ────────────────────────────────────────────────────────── */
-    #main {
-      max-width: 860px;
-      margin: 0 auto;
-      padding: 0 20px 60px;
-    }
-
-    /* ── Stock header ──────────────────────────────────────────────────── */
-    .stock-header {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px 24px;
-      margin-bottom: 20px;
-    }
-    .sym-name { font-size: 26px; font-weight: 700; letter-spacing: 1px; }
-    .price-block { display: flex; align-items: baseline; gap: 10px; }
-    .price-val { font-size: 26px; font-weight: 700; font-variant-numeric: tabular-nums; }
-    .change-val { font-size: 15px; font-weight: 600; }
-    .change-val.up   { color: var(--green); }
-    .change-val.down { color: var(--red);   }
-    .refresh-badge {
-      margin-left: auto;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 12px;
-      color: var(--muted);
-    }
-    .pulse {
-      width: 7px; height: 7px;
-      border-radius: 50%;
-      background: var(--green);
-      animation: pulse 2s infinite;
-    }
-    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:.25; } }
-
-    /* ── Card ──────────────────────────────────────────────────────────── */
-    .card {
+    .toolbar button.secondary {
       background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 18px 20px;
-      margin-bottom: 14px;
+      color: var(--text);
     }
-    .card-title {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: 0.9px;
-      margin-bottom: 14px;
-    }
+    .toolbar button:hover:not(:disabled) { opacity: 0.9; }
+    .toolbar button:active:not(:disabled) { transform: scale(0.98); }
+    .toolbar button:disabled { opacity: 0.5; cursor: not-allowed; }
 
-    /* ── Score card ────────────────────────────────────────────────────── */
-    .score-layout {
-      display: grid;
-      grid-template-columns: 180px 1fr;
-      gap: 28px;
-      align-items: center;
-    }
-    @media (max-width: 500px) { .score-layout { grid-template-columns: 1fr; } }
-
-    .gauge-svg { width: 100%; display: block; }
-
-    .sub-scores { display: flex; flex-direction: column; gap: 11px; }
-    .sub-row {
-      display: grid;
-      grid-template-columns: 96px 1fr 40px;
-      align-items: center;
-      gap: 10px;
-    }
-    .sub-label { font-size: 13px; color: var(--muted); }
-    .bar-track {
-      height: 6px;
-      background: #21262d;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-    .bar-fill {
-      height: 100%;
-      border-radius: 3px;
-      transition: width 0.5s ease, background 0.5s ease;
-    }
-    .sub-val {
-      font-size: 13px;
-      font-weight: 600;
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      transition: color 0.4s;
-    }
-
-    /* ── Chart ─────────────────────────────────────────────────────────── */
-    .chart-box { position: relative; height: 200px; }
-
-    /* ── 52w range ─────────────────────────────────────────────────────── */
-    .range-header {
+    .scan-meta {
       display: flex;
       justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 0 4px;
       font-size: 12px;
       color: var(--muted);
-      margin-bottom: 6px;
     }
-    .range-track {
-      height: 4px;
-      background: var(--border);
-      border-radius: 2px;
-      position: relative;
-      margin-bottom: 4px;
+
+    /* ── Stock card ──────────────────────────────────────────────────────── */
+    .card-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .stock-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 18px 20px;
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 16px;
+      transition: border-color 0.15s, transform 0.1s;
     }
-    .range-fill {
-      position: absolute;
-      left: 0; top: 0;
-      height: 100%;
-      background: var(--blue);
-      border-radius: 2px;
-      transition: width 0.5s ease;
+    .stock-card.tone-good   { border-left: 3px solid var(--green); }
+    .stock-card.tone-watch  { border-left: 3px solid var(--amber); }
+    .stock-card.tone-avoid  { border-left: 3px solid var(--red);   }
+    .stock-card.tone-mixed  { border-left: 3px solid var(--dim);   }
+
+    .rank {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: var(--card-2);
+      border-radius: 10px;
+      padding: 10px 0;
     }
-    .range-thumb {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 10px; height: 10px;
-      background: var(--blue);
-      border-radius: 50%;
-      transition: left 0.5s ease;
+    .rank-num {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
     }
-    .range-labels {
+    .rank-score {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 4px;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+
+    .stock-body { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+
+    .stock-top {
       display: flex;
       justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .stock-ticker {
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1.2px;
+    }
+    .stock-sector {
+      display: inline-block;
+      margin-left: 10px;
+      padding: 2px 8px;
+      border-radius: 5px;
+      background: var(--blue-bg);
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.4px;
+      vertical-align: middle;
+    }
+    .stock-price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+    }
+    .stock-price {
+      font-size: 18px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+    }
+    .stock-change {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 5px;
+    }
+    .stock-change.up   { color: var(--green); background: var(--green-bg); }
+    .stock-change.down { color: var(--red);   background: var(--red-bg);   }
+    .stock-change.flat { color: var(--muted); background: var(--border-soft); }
+
+    .rating-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .rating-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+    }
+    .rating-badge .dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .rating-badge.tone-good  { color: var(--green); background: var(--green-bg); }
+    .rating-badge.tone-watch { color: var(--amber); background: var(--amber-bg); }
+    .rating-badge.tone-avoid { color: var(--red);   background: var(--red-bg);   }
+    .rating-badge.tone-mixed { color: var(--text);  background: var(--border-soft); }
+
+    .reasoning {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+      opacity: 0.92;
+    }
+
+    .pillar-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    @media (max-width: 600px) { .pillar-row { grid-template-columns: 1fr; } }
+    .pillar {
+      background: var(--card-2);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+    .pillar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .pillar-name {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+    }
+    .pillar-score {
+      font-size: 13px;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .pillar-score.tone-good  { color: var(--green); }
+    .pillar-score.tone-watch { color: var(--amber); }
+    .pillar-score.tone-avoid { color: var(--red);   }
+    .pillar-score.tone-mixed { color: var(--text);  }
+    .pillar-bar {
+      width: 100%;
+      height: 4px;
+      background: var(--border-soft);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+    .pillar-bar-fill { height: 100%; transition: width 0.6s ease; }
+    .pillar-bar-fill.tone-good  { background: var(--green); }
+    .pillar-bar-fill.tone-watch { background: var(--amber); }
+    .pillar-bar-fill.tone-avoid { background: var(--red);   }
+    .pillar-bar-fill.tone-mixed { background: var(--dim);   }
+    .pillar-detail {
       font-size: 11px;
       color: var(--muted);
+      line-height: 1.5;
     }
+    .pillar-detail .pass { color: var(--green); }
+    .pillar-detail .fail { color: var(--red); }
+    .pillar-detail .na { color: var(--dim); }
 
-    /* ── Tile grid ─────────────────────────────────────────────────────── */
-    .tile-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-      gap: 8px;
-      margin-top: 14px;
+    .fund-dots {
+      display: inline-flex;
+      gap: 3px;
+      margin-left: 6px;
+      vertical-align: middle;
     }
-    .tile {
-      background: var(--bg);
-      border: 1px solid var(--border);
+    .fund-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: var(--border);
+    }
+    .fund-dot.pass { background: var(--green); }
+    .fund-dot.fail { background: var(--red); }
+    .fund-dot.na   { background: var(--dim); }
+
+    .card-warning {
+      margin-top: 4px;
+      padding: 8px 10px;
       border-radius: 8px;
-      padding: 11px 13px;
+      background: var(--amber-bg);
+      color: var(--amber);
+      font-size: 11px;
+      line-height: 1.45;
     }
-    .tile-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; }
-    .tile-value { font-size: 15px; font-weight: 600; font-variant-numeric: tabular-nums; }
-    .c-green   { color: var(--green); }
-    .c-red     { color: var(--red);   }
-    .c-yellow  { color: var(--yellow);}
-    .c-neutral { color: var(--text);  }
-    .c-null    { color: var(--muted); }
 
-    /* ── States ────────────────────────────────────────────────────────── */
-    #loading, #error-box {
-      max-width: 860px;
-      margin: 48px auto;
-      padding: 0 20px;
+    /* ── States ───────────────────────────────────────────────────────────── */
+    .state-card {
+      text-align: center;
+      padding: 48px 24px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+    }
+    .spinner {
+      width: 32px;
+      height: 32px;
+      border: 3px solid var(--border);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .state-text { color: var(--muted); font-size: 14px; }
+    .state-text-secondary { color: var(--dim); font-size: 12px; margin-top: 8px; }
+    .state-error .state-text { color: var(--red); }
+
+    .errors-card {
+      margin-top: 14px;
+      padding: 12px 16px;
+      background: var(--card-2);
+      border: 1px solid var(--border-soft);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .errors-card strong { color: var(--text); }
+    .errors-card ul { margin: 6px 0 0 18px; }
+
+    /* ── Glossary ─────────────────────────────────────────────────────────── */
+    .glossary {
+      margin-top: 28px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    .glossary > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: 0.4px;
+      user-select: none;
+    }
+    .glossary > summary::-webkit-details-marker { display: none; }
+    .glossary > summary::after {
+      content: '▾';
+      color: var(--muted);
+      font-size: 12px;
+      transition: transform 0.2s;
+    }
+    .glossary[open] > summary::after { transform: rotate(180deg); }
+    .glossary-body { padding: 4px 20px 20px; }
+
+    .gloss-section {
+      padding: 14px 0;
+      border-top: 1px solid var(--border-soft);
+    }
+    .gloss-section:first-child { border-top: none; padding-top: 6px; }
+    .gloss-section-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 10px;
+    }
+    .gloss-item {
+      padding: 10px 0;
+      border-bottom: 1px dashed var(--border-soft);
+    }
+    .gloss-item:last-child { border-bottom: none; }
+    .gloss-head {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-bottom: 4px;
+    }
+    .gloss-term {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+    }
+    .gloss-pass {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 5px;
+      background: var(--green-bg);
+      color: var(--green);
+      letter-spacing: 0.4px;
+    }
+    .gloss-formula {
+      font-size: 11px;
+      color: var(--dim);
+      font-family: 'SF Mono', Menlo, Consolas, monospace;
+    }
+    .gloss-desc {
+      font-size: 13px;
+      color: var(--text);
+      line-height: 1.55;
+      opacity: 0.88;
+    }
+    .gloss-why {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-top: 4px;
+    }
+    .gloss-why strong { color: var(--text); font-weight: 600; }
+
+    /* ── Disclaimer ───────────────────────────────────────────────────────── */
+    .disclaimer {
+      margin-top: 28px;
+      padding: 14px 18px;
+      background: var(--card-2);
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
       text-align: center;
     }
-    #loading  { color: var(--muted); }
-    #error-box{ color: var(--red);   }
-    [hidden]  { display: none !important; }
+
+    [hidden] { display: none !important; }
   </style>
 </head>
 <body>
 
-<!-- Search -->
-<div class="search-wrap">
-  <input id="sym-input" type="text" placeholder="Ticker — e.g. AAPL, NVDA, MSFT"
-         autocomplete="off" spellcheck="false" />
-  <button id="search-btn">Search</button>
-</div>
+<div class="container">
 
-<div id="loading"   hidden>Loading…</div>
-<div id="error-box" hidden></div>
+  <header class="app-header">
+    <h1 class="app-title">S&amp;P 500 <span class="accent">Opportunity Scanner</span></h1>
+    <p class="app-subtitle">
+      Institutional-quality scanner. Surfaces high-quality S&amp;P 500 companies temporarily trading at attractive prices — ranked by combined dip + fundamental score.
+    </p>
+  </header>
 
-<main id="main" hidden>
-
-  <!-- Header -->
-  <div class="stock-header">
-    <span id="sym-display"    class="sym-name"></span>
-    <div class="price-block">
-      <span id="price-display"  class="price-val"></span>
-      <span id="change-display" class="change-val"></span>
-    </div>
-    <div class="refresh-badge">
-      <div class="pulse"></div>
-      <span id="countdown">refreshing in 30s</span>
-    </div>
+  <div class="toolbar">
+    <input id="sym-input" type="text"
+           placeholder="Custom tickers (optional) — e.g. AAPL, NVDA, KO. Empty = scan today's S&amp;P 500 dip opportunities."
+           autocomplete="off" spellcheck="false" />
+    <button id="scan-btn">Scan</button>
+    <button id="reset-btn" class="secondary" title="Scan today's S&amp;P 500 opportunities">S&amp;P 500</button>
   </div>
 
-  <!-- Research Score -->
-  <div class="card">
-    <div class="card-title">Research Score</div>
-    <div class="score-layout">
-      <!-- Gauge -->
-      <svg id="gauge" class="gauge-svg" viewBox="0 0 200 148">
-        <path id="g-bg"  fill="none" stroke="#21262d"       stroke-width="11" stroke-linecap="round"/>
-        <path id="g-fg"  fill="none" stroke-width="11" stroke-linecap="round"
-              style="transition: d 0.5s ease, stroke 0.5s ease"/>
-        <text id="g-num"  x="100" y="92" text-anchor="middle" dominant-baseline="middle"
-              font-size="34" font-weight="700" fill="#e6edf3"
-              style="transition: fill 0.4s"></text>
-        <text x="100" y="115" text-anchor="middle"
-              font-size="11" fill="#8b949e">/ 100</text>
-      </svg>
+  <div id="scan-meta" class="scan-meta" hidden>
+    <span id="meta-count"></span>
+    <span id="meta-time"></span>
+  </div>
 
-      <!-- Sub-scores -->
-      <div class="sub-scores">
-        <div class="sub-row">
-          <span class="sub-label">Growth</span>
-          <div class="bar-track"><div id="b-growth" class="bar-fill"></div></div>
-          <span id="v-growth" class="sub-val"></span>
+  <div id="loading" class="state-card" hidden>
+    <div class="spinner"></div>
+    <div class="state-text">Scanning today's S&amp;P 500 opportunity pool…</div>
+    <div class="state-text-secondary">Filtering biggest losers ∩ S&amp;P 500, then scoring each on dip + fundamentals. Subsequent scans within 15 minutes are cached.</div>
+  </div>
+
+  <div id="error" class="state-card state-error" hidden>
+    <div class="state-text" id="error-text"></div>
+  </div>
+
+  <div id="card-list" class="card-list"></div>
+  <div id="errors-card" class="errors-card" hidden></div>
+
+  <details class="glossary">
+    <summary>What do these metrics mean? <span style="color:var(--muted);font-weight:500;font-size:12px;">— quick reference</span></summary>
+    <div class="glossary-body">
+
+      <div class="gloss-section">
+        <div class="gloss-section-title">Universe &amp; Discovery</div>
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Phase 1 universe: S&amp;P 500 only</span>
+            <span class="gloss-pass">Quality first</span>
+          </div>
+          <div class="gloss-desc">Every candidate must be a current S&amp;P 500 constituent. The index committee already screens for liquidity, market cap, and financial viability — so this filter eliminates penny stocks, OTC names, leveraged ETPs, and speculative micro-caps in one step.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> cleaner technical signals (real volume → real trend), more trustworthy fundamentals, and lower manipulation/pump-and-dump risk. The goal is "high-quality companies temporarily trading at attractive prices," not random explosive small caps.</div>
         </div>
-        <div class="sub-row">
-          <span class="sub-label">Profitability</span>
-          <div class="bar-track"><div id="b-profitability" class="bar-fill"></div></div>
-          <span id="v-profitability" class="sub-val"></span>
-        </div>
-        <div class="sub-row">
-          <span class="sub-label">Leverage</span>
-          <div class="bar-track"><div id="b-leverage" class="bar-fill"></div></div>
-          <span id="v-leverage" class="sub-val"></span>
-        </div>
-        <div class="sub-row">
-          <span class="sub-label">Momentum</span>
-          <div class="bar-track"><div id="b-momentum" class="bar-fill"></div></div>
-          <span id="v-momentum" class="sub-val"></span>
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">How candidates are picked</span>
+          </div>
+          <div class="gloss-desc">Each scan pulls today's biggest market losers and intersects them with the S&amp;P 500. On calm days when few S&amp;P 500 names are dipping, the pool is padded with a deterministic daily rotation through the index so the board is never empty.</div>
+          <div class="gloss-why"><strong>Future expansion:</strong> Nasdaq-100, sector ETFs, mid-caps, international equities — the universe layer is modular, so adding a new pool is one new function.</div>
         </div>
       </div>
+
+      <div class="gloss-section">
+        <div class="gloss-section-title">Dip Timing — "Is this a good time to buy?"</div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Dip from High</span>
+            <span class="gloss-pass">Reward if &gt; 5%</span>
+          </div>
+          <div class="gloss-desc">How far the current price sits below its recent peak (the higher of the 20-day or 50-day high).</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> a meaningful dip is what creates the entry point. A 1% dip is just noise; a 10–20% dip in a strong company is what we're hunting for.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">RSI (14)</span>
+            <span class="gloss-pass">Reward if &lt; 35</span>
+          </div>
+          <div class="gloss-desc">Relative Strength Index — momentum on a 0–100 scale over the last 14 days. Below 30 is "oversold", above 70 is "overbought".</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> a low RSI confirms the dip is statistically deep, not just a small wobble. Stocks frequently bounce from oversold territory.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Trend (SMA 20 / 50)</span>
+            <span class="gloss-pass">Reward if price &gt; SMA 50</span>
+          </div>
+          <div class="gloss-desc">Compares the current price to the 20-day and 50-day Simple Moving Averages. Above both = uptrend; below both = downtrend; mixed = transitional.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> buying a dip <em>inside</em> an uptrend has historically had much better odds than buying into a falling knife. This filter avoids stocks in long-term decline.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Bad-news Flag</span>
+            <span class="gloss-pass">Reward if no flag</span>
+          </div>
+          <div class="gloss-desc">Keyword scan of recent headlines for terms like "lawsuit", "downgrade", "fraud", "investigation", "cuts guidance", "recall", "data breach".</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> a flag doesn't mean disaster, but it tells you the dip might have a real reason behind it. Always read the actual headlines before acting.</div>
+        </div>
+      </div>
+
+      <div class="gloss-section">
+        <div class="gloss-section-title">Fundamental Quality — "Is this a good company to buy?"</div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">P/E Ratio</span>
+            <span class="gloss-pass">Pass if &lt; 20</span>
+            <span class="gloss-formula">Price ÷ EPS</span>
+          </div>
+          <div class="gloss-desc">Price-to-Earnings ratio. How many dollars you pay for $1 of the company's annual earnings.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> the most common valuation gauge. A P/E of 15 means it would take 15 years of current earnings to "earn back" the share price. Lower = cheaper, but extremely low P/Es can also signal trouble — context matters.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">PEG Ratio</span>
+            <span class="gloss-pass">Pass if &lt; 1</span>
+            <span class="gloss-formula">P/E ÷ earnings growth %</span>
+          </div>
+          <div class="gloss-desc">Price/Earnings-to-Growth. Adjusts P/E for how fast earnings are growing.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> a high P/E can be justified if the company is growing fast. PEG &lt; 1 generally means you're paying a fair price for the growth — a classic "growth at a reasonable price" signal popularized by Peter Lynch.</div>
+          <div class="gloss-why"><strong>Calculated PEGs (marked with *):</strong> when no vendor PEG is available we derive it as <code>P/E ÷ growth %</code>. Fallback chain: 5Y EPS CAGR → 3Y EPS CAGR → TTM EPS YoY → 5Y revenue CAGR → TTM revenue YoY. If none are usable, PEG is shown as N/A and excluded from scoring (no fabricated values).</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">ROE</span>
+            <span class="gloss-pass">Pass if &gt; 15%</span>
+            <span class="gloss-formula">Net Income ÷ Shareholder Equity</span>
+          </div>
+          <div class="gloss-desc">Return on Equity. How efficiently the company turns shareholder money into profit.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> a top quality marker. Sustained ROE above 15% usually points to a durable competitive advantage — Buffett famously screens for this. Low ROE means management isn't generating much profit per dollar of equity invested.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">P/B Ratio</span>
+            <span class="gloss-pass">Pass if &lt; 3</span>
+            <span class="gloss-formula">Price ÷ Book Value per Share</span>
+          </div>
+          <div class="gloss-desc">Price-to-Book. How much you pay relative to the company's net asset value on the balance sheet.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> tells you how much "asset cushion" you get per dollar invested. Below 3 is reasonable for most industries (asset-light tech firms can run higher; banks and industrials lower). Useful as a downside-protection check.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">D/E Ratio</span>
+            <span class="gloss-pass">Pass if &lt; 1</span>
+            <span class="gloss-formula">Total Debt ÷ Shareholder Equity</span>
+          </div>
+          <div class="gloss-desc">Debt-to-Equity. Measures financial leverage — how much of the company's funding comes from debt vs. equity.</div>
+          <div class="gloss-why"><strong>Why it matters:</strong> debt amplifies both gains and losses. A D/E above 1 means the company owes more than its equity base, which makes it more fragile during downturns and rising-rate environments.</div>
+        </div>
+      </div>
+
+      <div class="gloss-section">
+        <div class="gloss-section-title">Scores &amp; Final Rating</div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Dip Score</span>
+            <span class="gloss-formula">0 – 100</span>
+          </div>
+          <div class="gloss-desc">Sum of four technical checks: dip depth (+30), trend above SMA 50 (+25), RSI &lt; 35 (+20), no bad-news flag (+25).</div>
+          <div class="gloss-why">75+ = <strong style="color:var(--green)">GOOD DIP</strong> · 50–74 = <strong style="color:var(--amber)">WATCH</strong> · &lt; 50 = <strong style="color:var(--red)">AVOID</strong></div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Fundamental Score</span>
+            <span class="gloss-formula">passed ÷ available × 100</span>
+          </div>
+          <div class="gloss-desc">Percentage of <em>available</em> metrics that pass. Missing data ("N/A") is excluded from both sides of the ratio, so a stock with PEG missing and the other 4 passing scores 100% — not 80%.</div>
+          <div class="gloss-why">100% = <strong style="color:var(--green)">Instant Buy Quality</strong> · 80–99% = <strong style="color:var(--green)">Strong Quality</strong> · 60–79% = <strong style="color:var(--amber)">Decent</strong> · 40–59% = <strong style="color:var(--red)">Weak</strong> · &lt;40% = <strong style="color:var(--red)">Avoid</strong></div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Combined Score</span>
+            <span class="gloss-formula">(Dip / 100 × 50) + (Fund% / 100 × 50)</span>
+          </div>
+          <div class="gloss-desc">Equal-weighted blend of timing and quality, capped at 100. Used to rank the cards top to bottom.</div>
+          <div class="gloss-why"><strong>How to read it:</strong> a high combined score means both the entry point and the company quality look good. A high score from one side alone is interesting but not conclusive — read the Final Rating to see which case applies.</div>
+        </div>
+
+        <div class="gloss-item">
+          <div class="gloss-head">
+            <span class="gloss-term">Final Rating</span>
+          </div>
+          <div class="gloss-desc">Combines the dip and fundamental signals into one verdict.</div>
+          <div class="gloss-why">
+            <strong style="color:var(--green)">Instant Buy</strong> — strong dip + 100% fundamentals pass.<br>
+            <strong style="color:var(--green)">Strong Buy Candidate</strong> — strong dip + 80–99% pass.<br>
+            <strong style="color:var(--amber)">Good Dip, But Needs More Research</strong> — strong dip + 60–79% pass.<br>
+            <strong style="color:var(--amber)">Great Company, Bad Entry</strong> — 80%+ fundamentals but weak technical setup; consider waiting.<br>
+            <strong style="color:var(--red)">Value Trap Risk</strong> — price has dropped, but &lt;60% of fundamentals pass.<br>
+            <strong style="color:var(--text)">Hold / Mixed Signals</strong> — neither side gives a clear case (or no fundamental data was available).<br>
+            <strong style="color:var(--red)">Avoid</strong> — both timing and quality are weak.
+          </div>
+        </div>
+      </div>
+
     </div>
+  </details>
+
+  <div id="disclaimer" class="disclaimer">
+    This is not financial advice. This tool is only a stock screening system. Always review news, earnings, industry trends, and personal risk before investing.
   </div>
+</div>
 
-  <!-- Live price chart -->
-  <div class="card">
-    <div class="card-title">
-      Live Price &nbsp;<span style="font-weight:400;text-transform:none;font-size:11px;color:var(--muted)">
-        — updates every 30s while open
-      </span>
-    </div>
-    <div class="chart-box">
-      <canvas id="price-chart"></canvas>
-    </div>
-  </div>
-
-  <!-- Technicals -->
-  <div class="card">
-    <div class="card-title">Technicals</div>
-    <div class="range-header">
-      <span>52-Week Range</span>
-      <span id="dist-label"></span>
-    </div>
-    <div class="range-track">
-      <div id="r-fill"  class="range-fill"></div>
-      <div id="r-thumb" class="range-thumb"></div>
-    </div>
-    <div class="range-labels">
-      <span id="low52-lbl">—</span>
-      <span id="high52-lbl">—</span>
-    </div>
-    <div class="tile-grid" id="tech-grid"></div>
-  </div>
-
-  <!-- Fundamentals -->
-  <div class="card">
-    <div class="card-title">Fundamentals</div>
-    <div class="tile-grid" id="fund-grid"></div>
-  </div>
-
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-// ── Constants ────────────────────────────────────────────────────────────────
-const POLL_MS = 30_000;
-const CX = 100, CY = 88, R = 63, START_DEG = 135, SWEEP = 270;
+const $ = (id) => document.getElementById(id);
 
-// ── State ────────────────────────────────────────────────────────────────────
-let chart = null, pollTimer = null, tickTimer = null;
-
-// ── Gauge math ────────────────────────────────────────────────────────────────
-function xy(deg) {
-  const r = deg * Math.PI / 180;
-  return [CX + R * Math.cos(r), CY + R * Math.sin(r)];
+function fmtUsd(v)  { return v != null ? '$' + v.toFixed(2) : '—'; }
+function fmtPct(v, signed = false) {
+  if (v == null) return '—';
+  const sign = signed && v >= 0 ? '+' : '';
+  return `${sign}${v.toFixed(2)}%`;
 }
-function arc(startDeg, sweepDeg) {
-  if (sweepDeg <= 0) return '';
-  sweepDeg = Math.min(sweepDeg, 359.9);
-  const [sx, sy] = xy(startDeg);
-  const [ex, ey] = xy(startDeg + sweepDeg);
-  return `M${sx.toFixed(1)} ${sy.toFixed(1)} A${R} ${R} 0 ${sweepDeg > 180 ? 1 : 0} 1 ${ex.toFixed(1)} ${ey.toFixed(1)}`;
-}
-function scoreColor(v) {
-  return v >= 70 ? '#3fb950' : v >= 40 ? '#d29922' : '#f85149';
+function escapeHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
-// ── Chart ────────────────────────────────────────────────────────────────────
-function initChart() {
-  if (chart) { chart.destroy(); chart = null; }
-  const ctx = document.getElementById('price-chart').getContext('2d');
-  chart = new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: [],
-      datasets: [{
-        data: [], borderColor: '#58a6ff',
-        backgroundColor: 'rgba(88,166,255,0.07)',
-        borderWidth: 2, pointRadius: 3,
-        pointBackgroundColor: '#58a6ff',
-        tension: 0.35, fill: true,
-      }]
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      animation: { duration: 350 },
-      scales: {
-        x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { size: 11 } } },
-        y: {
-          position: 'right',
-          grid: { color: '#21262d' },
-          ticks: { color: '#8b949e', font: { size: 11 }, callback: v => '$' + v.toFixed(2) },
-        }
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: { callbacks: { label: c => ' $' + c.parsed.y.toFixed(2) } }
-      }
-    }
-  });
-}
-
-function pushPrice(price) {
-  if (!chart || price == null) return;
-  const t = new Date().toLocaleTimeString('en-US', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
-  chart.data.labels.push(t);
-  chart.data.datasets[0].data.push(price);
-  if (chart.data.labels.length > 80) {
-    chart.data.labels.shift();
-    chart.data.datasets[0].data.shift();
-  }
-  const pts = chart.data.datasets[0].data;
-  const up  = pts.length < 2 || pts[pts.length - 1] >= pts[0];
-  const col = up ? '#3fb950' : '#f85149';
-  chart.data.datasets[0].borderColor      = col;
-  chart.data.datasets[0].backgroundColor  = col.replace('#', 'rgba(') // fallback
-    .replace('3fb950', '63,185,80,0.07)').replace('f85149', '248,81,73,0.07)');
-  chart.update();
-}
-
-// ── Formatting ────────────────────────────────────────────────────────────────
-const f2 = v => v != null ? v.toFixed(2) : null;
-const pct = v => v != null ? (v >= 0 ? '+' : '') + v.toFixed(2) + '%' : null;
-const big = v => {
-  if (v == null) return null;
-  const a = Math.abs(v);
-  if (a >= 1e12) return (v/1e12).toFixed(2) + 'T';
-  if (a >= 1e9)  return (v/1e9).toFixed(2)  + 'B';
-  if (a >= 1e6)  return (v/1e6).toFixed(2)  + 'M';
-  return v.toFixed(0);
+const FINAL_TONE = {
+  'INSTANT BUY':                       'good',
+  'STRONG BUY CANDIDATE':              'good',
+  'GREAT COMPANY, BAD ENTRY':          'watch',
+  'GOOD DIP, BUT NEEDS MORE RESEARCH': 'watch',
+  'HOLD / MIXED SIGNALS':              'mixed',
+  'VALUE TRAP RISK':                   'avoid',
+  'AVOID':                             'avoid',
 };
 
-function tile(label, val, cls = 'c-neutral') {
-  return `<div class="tile">
-    <div class="tile-label">${label}</div>
-    <div class="tile-value ${val == null ? 'c-null' : cls}">${val ?? '—'}</div>
+const DIP_TONE = { 'GOOD DIP': 'good', 'WATCH': 'watch', 'AVOID': 'avoid' };
+const FUND_TONE = {
+  'INSTANT BUY QUALITY': 'good',
+  'STRONG QUALITY':      'good',
+  'DECENT':              'watch',
+  'WEAK QUALITY':        'avoid',
+  'AVOID QUALITY':       'avoid',
+};
+
+const TREND_LABEL = {
+  UPTREND: 'Uptrend ▲',
+  RECOVERING: 'Recovering ↗',
+  MIXED: 'Mixed →',
+  DOWNTREND: 'Downtrend ▼',
+  UNKNOWN: 'Trend unknown',
+};
+
+function renderFundDots(fund) {
+  const order = ['pe', 'peg', 'roe', 'pb', 'de'];
+  return order.map((k) => {
+    const c = fund[k];
+    const cls = !c.available ? 'na' : c.pass ? 'pass' : 'fail';
+    return `<span class="fund-dot ${cls}" title="${k.toUpperCase()}: ${cls.toUpperCase()}"></span>`;
+  }).join('');
+}
+
+function fundDetailLine(fund) {
+  const fmt = (label, c, fmtVal) => {
+    if (!c.available) return `${label} <span class="na">N/A</span>`;
+    const cls = c.pass ? 'pass' : 'fail';
+    return `${label} <span class="${cls}">${fmtVal(c.value)}</span>`;
+  };
+  // Mark calculated PEGs so users know the value was derived (P/E ÷ growth %)
+  // rather than vendor-provided. The method (e.g. "5Y EPS CAGR") is in the title.
+  let pegLine;
+  if (!fund.peg.available) {
+    pegLine = 'PEG <span class="na">N/A</span>';
+  } else if (fund.pegSource === 'calculated') {
+    const cls = fund.peg.pass ? 'pass' : 'fail';
+    const tip = `Calculated as P/E ÷ ${fund.pegMethod || 'growth %'} (no vendor PEG available)`;
+    pegLine = `PEG <span class="${cls}" title="${escapeHtml(tip)}">${fund.peg.value.toFixed(2)}*</span>`;
+  } else {
+    const cls = fund.peg.pass ? 'pass' : 'fail';
+    pegLine = `PEG <span class="${cls}">${fund.peg.value.toFixed(2)}</span>`;
+  }
+  return [
+    fmt('P/E',  fund.pe,  (v) => v.toFixed(1)),
+    pegLine,
+    fmt('ROE',  fund.roe, (v) => v.toFixed(0) + '%'),
+    fmt('P/B',  fund.pb,  (v) => v.toFixed(1)),
+    fmt('D/E',  fund.de,  (v) => v.toFixed(2)),
+  ].join(' · ');
+}
+
+function dipDetailLine(item) {
+  const parts = [];
+  if (item.dipPercentage != null) {
+    parts.push(`Dip <span class="${item.dipPercentage >= 5 ? 'pass' : 'fail'}">−${item.dipPercentage.toFixed(2)}%</span>`);
+  } else {
+    parts.push('Dip <span class="na">N/A</span>');
+  }
+  if (item.rsi != null) {
+    const rsiCls = item.rsi < 35 ? 'pass' : item.rsi > 70 ? 'fail' : '';
+    parts.push(`RSI <span class="${rsiCls}">${item.rsi.toFixed(0)}</span>`);
+  } else {
+    parts.push('RSI <span class="na">N/A</span>');
+  }
+  parts.push(escapeHtml(TREND_LABEL[item.trendDirection] ?? 'Trend unknown'));
+  if (item.badNewsFlag) parts.push('<span class="fail">⚠ bad-news keywords</span>');
+  return parts.join(' · ');
+}
+
+function renderCard(item, rank) {
+  const tone = FINAL_TONE[item.combined.rating] ?? 'mixed';
+  const dipTone = DIP_TONE[item.dipLabel] ?? 'mixed';
+  const fundTone = FUND_TONE[item.fundamentals.label] ?? 'mixed';
+
+  const change = item.dailyPercentChange;
+  const changeCls = change == null ? 'flat' : change > 0 ? 'up' : change < 0 ? 'down' : 'flat';
+
+  const dipPct = Math.max(0, Math.min(100, item.dipScore));
+  // fundamentalPercent = passed / available × 100 — missing metrics don't penalize.
+  const fundPct = Math.max(0, Math.min(100, item.fundamentals.fundamentalPercent));
+  const fundDenom = item.fundamentals.availableCount || item.fundamentals.maxScore;
+
+  const warning = item.combined.warning;
+
+  return `<div class="stock-card tone-${tone}">
+    <div class="rank">
+      <div class="rank-num">#${rank}</div>
+      <div class="rank-score">${item.combinedScore}/100</div>
+    </div>
+    <div class="stock-body">
+      <div class="stock-top">
+        <span>
+          <span class="stock-ticker">${escapeHtml(item.ticker)}</span>
+          ${item.sector ? `<span class="stock-sector">${escapeHtml(item.sector)}</span>` : ''}
+        </span>
+        <div class="stock-price-row">
+          <span class="stock-price">${fmtUsd(item.currentPrice)}</span>
+          <span class="stock-change ${changeCls}">${fmtPct(change, true)}</span>
+        </div>
+      </div>
+
+      <div class="rating-row">
+        <span class="rating-badge tone-${tone}">
+          <span class="dot"></span>${escapeHtml(item.combined.rating)}
+        </span>
+      </div>
+
+      <p class="reasoning">${escapeHtml(item.combined.reasoning)}</p>
+
+      <div class="pillar-row">
+        <div class="pillar">
+          <div class="pillar-head">
+            <span class="pillar-name">Dip Timing</span>
+            <span class="pillar-score tone-${dipTone}">${item.dipScore}/100 · ${escapeHtml(item.dipLabel)}</span>
+          </div>
+          <div class="pillar-bar"><div class="pillar-bar-fill tone-${dipTone}" style="width:${dipPct}%"></div></div>
+          <div class="pillar-detail">${dipDetailLine(item)}</div>
+        </div>
+        <div class="pillar">
+          <div class="pillar-head">
+            <span class="pillar-name">Fundamental Quality</span>
+            <span class="pillar-score tone-${fundTone}">${item.fundamentals.score}/${fundDenom} · ${fundPct}% · ${escapeHtml(item.fundamentals.label)}<span class="fund-dots">${renderFundDots(item.fundamentals)}</span></span>
+          </div>
+          <div class="pillar-bar"><div class="pillar-bar-fill tone-${fundTone}" style="width:${fundPct}%"></div></div>
+          <div class="pillar-detail">${fundDetailLine(item.fundamentals)}</div>
+        </div>
+      </div>
+
+      ${warning ? `<div class="card-warning">⚠ ${escapeHtml(warning)}</div>` : ''}
+    </div>
   </div>`;
 }
 
-// ── UI update ─────────────────────────────────────────────────────────────────
-function updateUI(d) {
-  // Header
-  document.getElementById('sym-display').textContent = d.symbol;
-  document.getElementById('price-display').textContent =
-    d.price != null ? '$' + d.price.toFixed(2) : '—';
-  const chEl = document.getElementById('change-display');
-  if (d.changePct != null) {
-    chEl.textContent = (d.changePct >= 0 ? '+' : '') + d.changePct.toFixed(2) + '%';
-    chEl.className = 'change-val ' + (d.changePct >= 0 ? 'up' : 'down');
+function renderList(payload) {
+  const list = $('card-list');
+  if (!payload.items.length) {
+    list.innerHTML = `<div class="state-card"><div class="state-text">No stocks returned. Try a different list.</div></div>`;
+  } else {
+    list.innerHTML = payload.items.map((item, i) => renderCard(item, i + 1)).join('');
   }
 
-  // Live chart
-  pushPrice(d.price);
+  $('scan-meta').hidden = false;
+  let countLine;
+  if (payload.mode === 'discovered' && payload.discovery) {
+    const d = payload.discovery;
+    const detail = d.paddedFromRotation > 0
+      ? `${d.sp500Matched} from today's losers + ${d.paddedFromRotation} from S&P 500 rotation`
+      : `${d.sp500Matched} S&P 500 names from ${d.rawCount} losers screened`;
+    countLine = `Top ${payload.items.length} of ${payload.poolSize} · ${detail}`;
+  } else if (payload.mode === 'fallback') {
+    countLine = `${payload.items.length} from curated S&P 500 fallback`;
+  } else {
+    countLine = `${payload.items.length} ranked · custom watchlist`;
+  }
+  const universeTag = payload.universe === 'sp500' ? 'S&P 500' : payload.universe === 'custom' ? 'Custom' : 'Fallback';
+  $('meta-count').textContent = `[${universeTag}]  ${countLine}`;
+  $('meta-time').textContent = `Updated ${new Date(payload.generatedAt).toLocaleTimeString()}`;
 
-  // Score gauge
-  document.getElementById('g-bg').setAttribute('d', arc(START_DEG, SWEEP));
-  const filled = (d.score.composite / 100) * SWEEP;
-  document.getElementById('g-fg').setAttribute('d', arc(START_DEG, filled));
-  document.getElementById('g-fg').setAttribute('stroke', scoreColor(d.score.composite));
-  const gNum = document.getElementById('g-num');
-  gNum.textContent = d.score.composite.toFixed(1);
-  gNum.setAttribute('fill', scoreColor(d.score.composite));
-
-  // Sub-scores
-  for (const key of ['growth', 'profitability', 'leverage', 'momentum']) {
-    const v = d.score[key];
-    const col = scoreColor(v);
-    document.getElementById(`b-${key}`).style.cssText = `width:${v}%;background:${col}`;
-    const valEl = document.getElementById(`v-${key}`);
-    valEl.textContent = v.toFixed(1);
-    valEl.style.color = col;
+  const errs = payload.errors || [];
+  const errEl = $('errors-card');
+  if (errs.length) {
+    errEl.hidden = false;
+    errEl.innerHTML = `<strong>Could not load ${errs.length} ticker${errs.length === 1 ? '' : 's'}:</strong>
+      <ul>${errs.map((e) => `<li>${escapeHtml(e.symbol)} — ${escapeHtml(e.error)}</li>`).join('')}</ul>`;
+  } else {
+    errEl.hidden = true;
   }
 
-  // 52w range bar
-  const { price, high52w, low52w, distFrom52wHigh } = d;
-  if (price != null && high52w != null && low52w != null && high52w > low52w) {
-    const p = ((price - low52w) / (high52w - low52w) * 100).toFixed(1);
-    document.getElementById('r-fill').style.width  = p + '%';
-    document.getElementById('r-thumb').style.left  = p + '%';
+  if (payload.disclaimer) $('disclaimer').textContent = payload.disclaimer;
+}
+
+function showState(state) {
+  $('loading').hidden = state !== 'loading';
+  $('error').hidden   = state !== 'error';
+  if (state === 'loading' || state === 'error') {
+    $('card-list').innerHTML = '';
+    $('errors-card').hidden = true;
+    $('scan-meta').hidden = true;
   }
-  document.getElementById('low52-lbl').textContent  = low52w  ? '$' + low52w.toFixed(2)  : '—';
-  document.getElementById('high52-lbl').textContent = high52w ? '$' + high52w.toFixed(2) : '—';
-  document.getElementById('dist-label').textContent =
-    distFrom52wHigh != null ? distFrom52wHigh.toFixed(2) + '% from 52w high' : '';
-
-  // Technicals tiles
-  document.getElementById('tech-grid').innerHTML = [
-    tile('Volume',     big(d.volume)),
-    tile('Rel Volume', d.relativeVolume != null ? d.relativeVolume.toFixed(2) + '×' : null,
-         d.relativeVolume >= 2 ? 'c-green' : d.relativeVolume >= 1 ? 'c-neutral' : 'c-red'),
-    tile('50D MA',     d.ma50d  != null ? '$' + d.ma50d.toFixed(2)  : null),
-    tile('200D MA',    d.ma200d != null ? '$' + d.ma200d.toFixed(2) : null),
-    tile('vs 200D MA',
-         price != null && d.ma200d != null ? (price > d.ma200d ? '▲ Above' : '▼ Below') : null,
-         price != null && d.ma200d != null ? (price > d.ma200d ? 'c-green' : 'c-red') : 'c-null'),
-  ].join('');
-
-  // Fundamentals tiles
-  const f = d.fundamentals;
-  document.getElementById('fund-grid').innerHTML = [
-    tile('Rev Growth',  pct(f.revenueGrowthYoy),
-         f.revenueGrowthYoy > 0 ? 'c-green' : 'c-red'),
-    tile('EPS Growth',  pct(f.epsGrowthYoy),
-         f.epsGrowthYoy > 0 ? 'c-green' : 'c-red'),
-    tile('Gross Margin',   f.grossMargin     != null ? f.grossMargin.toFixed(1)     + '%' : null),
-    tile('Op Margin',      f.operatingMargin != null ? f.operatingMargin.toFixed(1) + '%' : null),
-    tile('Net Margin',     f.netMargin       != null ? f.netMargin.toFixed(1)       + '%' : null),
-    tile('ROE',            f.roe != null ? f.roe.toFixed(1) + '%' : null,
-         f.roe > 20 ? 'c-green' : f.roe > 0 ? 'c-neutral' : 'c-red'),
-    tile('Debt / Equity',  f.debtToEquity != null ? f.debtToEquity.toFixed(2) : null,
-         f.debtToEquity < 1 ? 'c-green' : f.debtToEquity < 3 ? 'c-yellow' : 'c-red'),
-    tile('Current Ratio',  f.currentRatio != null ? f.currentRatio.toFixed(2) : null,
-         f.currentRatio >= 2 ? 'c-green' : f.currentRatio >= 1 ? 'c-yellow' : 'c-red'),
-    tile('Free Cash Flow', big(f.freeCashFlow),
-         f.freeCashFlow > 0 ? 'c-green' : 'c-red'),
-  ].join('');
 }
 
-// ── Polling ───────────────────────────────────────────────────────────────────
-function stopAll() {
-  clearInterval(pollTimer);
-  clearInterval(tickTimer);
+function setBusy(busy) {
+  $('scan-btn').disabled = busy;
+  $('reset-btn').disabled = busy;
 }
 
-function startPolling(symbol) {
-  stopAll();
-  let secs = POLL_MS / 1000;
-  const cdEl = document.getElementById('countdown');
-
-  tickTimer = setInterval(() => {
-    secs--;
-    if (secs <= 0) secs = POLL_MS / 1000;
-    cdEl.textContent = `refreshing in ${secs}s`;
-  }, 1000);
-
-  pollTimer = setInterval(async () => {
-    secs = POLL_MS / 1000;
-    try {
-      updateUI(await api(symbol));
-    } catch (e) {
-      console.warn('Poll:', e.message);
-    }
-  }, POLL_MS);
-}
-
-// ── Fetch ─────────────────────────────────────────────────────────────────────
-async function api(symbol) {
-  const res  = await fetch(`/api/v1/stock/${encodeURIComponent(symbol)}`);
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || 'Request failed');
-  return body;
-}
-
-// ── Search ────────────────────────────────────────────────────────────────────
-async function search(symbol) {
-  if (!symbol) return;
-  stopAll();
-
-  const mainEl  = document.getElementById('main');
-  const loadEl  = document.getElementById('loading');
-  const errEl   = document.getElementById('error-box');
-
-  mainEl.hidden = true;
-  errEl.hidden  = true;
-  loadEl.hidden = false;
-
+async function runScan(symbolsCsv) {
+  showState('loading');
+  setBusy(true);
   try {
-    const data = await api(symbol);
-    loadEl.hidden = true;
-    mainEl.hidden = false;
-    initChart();
-    updateUI(data);
-    startPolling(symbol);
-  } catch (e) {
-    loadEl.hidden = true;
-    errEl.hidden  = false;
-    errEl.textContent = e.message;
+    const url = symbolsCsv
+      ? `/api/v1/scan?symbols=${encodeURIComponent(symbolsCsv)}`
+      : '/api/v1/scan';
+    const res = await fetch(url);
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+    showState('idle');
+    renderList(body);
+  } catch (err) {
+    $('error-text').textContent = err.message || 'Scan failed.';
+    showState('error');
+  } finally {
+    setBusy(false);
   }
 }
 
-// ── Events ────────────────────────────────────────────────────────────────────
-document.getElementById('search-btn').addEventListener('click', () =>
-  search(document.getElementById('sym-input').value.trim().toUpperCase()));
-
-document.getElementById('sym-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter')
-    search(document.getElementById('sym-input').value.trim().toUpperCase());
+$('scan-btn').addEventListener('click', () => {
+  const csv = $('sym-input').value.trim();
+  runScan(csv);
 });
+
+$('reset-btn').addEventListener('click', () => {
+  $('sym-input').value = '';
+  runScan('');
+});
+
+$('sym-input').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') runScan($('sym-input').value.trim());
+});
+
+// Auto-run on load
+runScan('');
 </script>
 </body>
 </html>

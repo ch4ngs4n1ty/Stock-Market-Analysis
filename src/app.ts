@@ -32,6 +32,7 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
 
 app.listen(PORT, () => {
   console.log(`\nStock Research API running on http://localhost:${PORT}`);
+  console.log(`  GET /api/v1/dip/:symbol`);
   console.log(`  GET /api/v1/stock/:symbol`);
   console.log(`  GET /api/v1/health\n`);
 });
