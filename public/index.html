@@ -674,6 +674,7 @@ const FINAL_TONE = {
 };
 
 const DIP_TONE = { 'GOOD DIP': 'good', 'WATCH': 'watch', 'AVOID': 'avoid' };
+const NLP_TONE = { 'BUY': 'good', 'HOLD': 'watch', 'AVOID': 'avoid' };
 const FUND_TONE = {
   'INSTANT BUY QUALITY': 'good',
   'STRONG QUALITY':      'good',
@@ -725,6 +726,22 @@ function fundDetailLine(fund) {
     fmt('P/B',  fund.pb,  (v) => v.toFixed(1)),
     fmt('D/E',  fund.de,  (v) => v.toFixed(2)),
   ].join(' · ');
+}
+
+function nlpDetailLine(nlp) {
+  const s = nlp.sentimentSummary || { positive: 0, negative: 0, neutral: 0, n: 0 };
+  const parts = [
+    `<span class="pass">${s.positive} pos</span>`,
+    `<span class="fail">${s.negative} neg</span>`,
+    `<span class="na">${s.neutral} neu</span>`,
+    `n=${s.n}`,
+  ];
+  const sourceLabel = nlp.sentimentSource === 'finbert' ? 'FinBERT' : 'lexicon';
+  parts.push(`<span class="na" title="Sentiment model in use">${sourceLabel}</span>`);
+  if (nlp.dipIntegration && nlp.dipIntegration.dip_signal && nlp.dipIntegration.final_score !== nlp.dipIntegration.original_score) {
+    parts.push(`<span class="pass" title="${escapeHtml(nlp.dipIntegration.note)}">dip boost +${nlp.dipIntegration.final_score - nlp.dipIntegration.original_score}</span>`);
+  }
+  return parts.join(' · ');
 }
 
 function dipDetailLine(item) {
@@ -802,6 +819,22 @@ function renderCard(item, rank) {
           <div class="pillar-bar"><div class="pillar-bar-fill tone-${fundTone}" style="width:${fundPct}%"></div></div>
           <div class="pillar-detail">${fundDetailLine(item.fundamentals)}</div>
         </div>
+        ${item.nlp ? (() => {
+          const nlpTone = NLP_TONE[item.nlp.dipIntegration?.label || item.nlp.label] ?? 'mixed';
+          const nlpScore = item.nlp.dipIntegration ? item.nlp.dipIntegration.final_score : item.nlp.score;
+          const nlpLabel = item.nlp.dipIntegration ? item.nlp.dipIntegration.label : item.nlp.label;
+          const nlpPct = Math.max(0, Math.min(100, nlpScore));
+          return `
+        <div class="pillar">
+          <div class="pillar-head">
+            <span class="pillar-name">News Sentiment (24h)</span>
+            <span class="pillar-score tone-${nlpTone}">${nlpScore}/100 · ${escapeHtml(nlpLabel)}</span>
+          </div>
+          <div class="pillar-bar"><div class="pillar-bar-fill tone-${nlpTone}" style="width:${nlpPct}%"></div></div>
+          <div class="pillar-detail">${nlpDetailLine(item.nlp)}</div>
+          ${item.nlp.topHeadline ? `<div class="pillar-detail" style="margin-top:4px;opacity:.85;">Top: "${escapeHtml(item.nlp.topHeadline)}"</div>` : ''}
+        </div>`;
+        })() : ''}
       </div>
 
       ${warning ? `<div class="card-warning">⚠ ${escapeHtml(warning)}</div>` : ''}

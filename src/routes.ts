@@ -19,6 +19,7 @@ import {
   combineRatings,
   combinedScore,
 } from './scorer';
+import { analyzeNlp, NlpScoreResult, DipIntegrationResult } from './nlpScorer';
 
 const router = Router();
 
@@ -27,6 +28,24 @@ const CANDLE_TTL = 15 * 60 * 1_000;
 const RSI_TTL = 15 * 60 * 1_000;
 const NEWS_TTL = 15 * 60 * 1_000;
 const FUNDAMENTALS_TTL = 12 * 60 * 60 * 1_000;
+// News sentiment doesn't shift second-to-second; 15min keeps /scan fast.
+const NLP_TTL = 15 * 60 * 1_000;
+
+type NlpAnalysis = NlpScoreResult & { dip_integration?: DipIntegrationResult };
+
+// Non-fatal NLP: if FinBERT/HF or Finnhub news fails, return null so the rest
+// of the analysis still renders. The UI hides the pillar when nlp is null.
+async function safeNlp(symbol: string, dipSignal: boolean): Promise<NlpAnalysis | null> {
+  try {
+    return await cache.getOrSet<NlpAnalysis>(
+      `nlp:${symbol}:${dipSignal ? 1 : 0}`,
+      NLP_TTL,
+      () => analyzeNlp(symbol, dipSignal),
+    );
+  } catch {
+    return null;
+  }
+}
 
 const COMBINED_DISCLAIMER =
   'This is not financial advice. This tool is only a stock screening system. Always review news, earnings, industry trends, and personal risk before investing.';
@@ -98,11 +117,17 @@ async function buildAnalysis(symbol: string) {
   const combined = combineRatings(dip, fundamentals);
   const overall = combinedScore(dip, fundamentals);
 
+  // News sentiment runs in parallel with the rest; failure is non-fatal.
+  // The dip signal is the technical "GOOD DIP" verdict, fed into integrateDipSignal()
+  // so the news-driven score and dip signal combine into one verdict.
+  const nlp = await safeNlp(symbol, dip.label === 'GOOD DIP');
+
   return {
     ...dip,
     fundamentals,
     combined,
     combinedScore: overall,
+    nlp,
     disclaimer: COMBINED_DISCLAIMER,
   };
 }
@@ -129,6 +154,15 @@ function toScanItem(
     fundamentalPercent: analysis.fundamentals.fundamentalPercent,
     combined: analysis.combined,
     combinedScore: analysis.combinedScore,
+    nlp: analysis.nlp ? {
+      score: analysis.nlp.score,
+      label: analysis.nlp.label,
+      topHeadline: analysis.nlp.top_headline,
+      reasoning: analysis.nlp.reasoning,
+      sentimentSummary: analysis.nlp.sentiment_summary,
+      sentimentSource: analysis.nlp.sentiment_source,
+      dipIntegration: analysis.nlp.dip_integration ?? null,
+    } : null,
     dataWarnings: analysis.dataWarnings,
   };
 }
@@ -276,6 +310,34 @@ router.get('/dip/:symbol', async (req: Request, res: Response, next: NextFunctio
   try {
     const symbol = normalizeSymbol(req.params.symbol);
     res.json(await buildAnalysis(symbol));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// NLP-powered buy/risk score using FinBERT-style sentiment on the last 24h of news.
+// The dip signal from the existing technical analyzer is fed into integrateDipSignal()
+// so the news-driven score and the dip signal combine into a single verdict.
+// Pass ?dip=true|false to override the auto-derived dip signal.
+router.get('/nlp/:symbol', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const symbol = normalizeSymbol(req.params.symbol);
+    const dipParam = req.query.dip;
+
+    // No override → reuse the cached NLP slice that buildAnalysis already computed.
+    if (dipParam !== 'true' && dipParam !== 'false') {
+      const analysis = await buildAnalysis(symbol);
+      if (!analysis.nlp) {
+        res.status(503).json({ error: 'NLP scoring unavailable' });
+        return;
+      }
+      res.json({ ...analysis.nlp, disclaimer: COMBINED_DISCLAIMER });
+      return;
+    }
+
+    // Explicit override → bypass cache and recompute with the requested dip signal.
+    const result = await analyzeNlp(symbol, dipParam === 'true');
+    res.json({ ...result, disclaimer: COMBINED_DISCLAIMER });
   } catch (err) {
     next(err);
   }

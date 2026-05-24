@@ -34,5 +34,6 @@ app.listen(PORT, () => {
   console.log(`\nStock Research API running on http://localhost:${PORT}`);
   console.log(`  GET /api/v1/dip/:symbol`);
   console.log(`  GET /api/v1/stock/:symbol`);
+  console.log(`  GET /api/v1/nlp/:symbol`);
   console.log(`  GET /api/v1/health\n`);
 });
